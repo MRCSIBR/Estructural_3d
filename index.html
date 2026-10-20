@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estructura 3D — Techo Inclinado 4x3m PTR 100x100 y Chapa Trapezoidal</title>
+<style>
+  :root {
+    --bg-panel: rgba(24, 28, 34, 0.92);
+    --border: rgba(255, 255, 255, 0.14);
+    --accent: #38bdf8;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: #7b8088;
+    font-family: Roboto, "Clear Sans", system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    user-select: none;
+  }
+  #canvas-container {
+    width: 100%;
+    height: 100%;
+  }
+  .ui-panel {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    width: 340px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    background: var(--bg-panel);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .ui-header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+  }
+  .ui-header h1 {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: #fff;
+  }
+  .ui-header p {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .control-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 500;
+    color: #cbd5e1;
+  }
+  .control-value {
+    color: var(--accent);
+    font-family: monospace;
+    font-weight: 700;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  button {
+    background: #273244;
+    color: #e2e8f0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  button:hover {
+    background: #334155;
+    border-color: var(--accent);
+  }
+  button.active {
+    background: #0284c7;
+    color: #fff;
+    border-color: #38bdf8;
+  }
+  .bom-box {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 11.5px;
+    line-height: 1.55;
+  }
+  .bom-title {
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 6px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .bom-item {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dashed rgba(255,255,255,0.08);
+    padding: 3px 0;
+  }
+  .bom-item:last-child { border-bottom: none; }
+  .bom-item span:last-child {
+    font-family: monospace;
+    color: #f8fafc;
+  }
+  .hint {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+  }
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<div class="ui-panel">
+  <div class="ui-header">
+    <h1>TECHO INCLINADO 4.00 × 3.00 m</h1>
+    <p>PTR 100×100×3.2 mm + Chapa de Zinc Trapezoidal T-101</p>
+  </div>
+
+  <div class="control-group">
+    <div class="control-label">
+      <span>Altura Columnas Altas (Frente)</span>
+      <span class="control-value" id="valFrontH">2.80 m</span>
+    </div>
+    <input type="range" id="sliderFrontH" min="2.40" max="3.40" step="0.05" value="2.80">
+  </div>
+
+  <div class="control-group">
+    <div class="control-label">
+      <span>Altura Columnas Bajas (Fondo)</span>
+      <span class="control-value" id="valBackH">2.35 m</span>
+    </div>
+    <input type="range" id="sliderBackH" min="2.00" max="2.80" step="0.05" value="2.35">
+  </div>
+
+  <div class="control-group">
+    <div class="control-label">
+      <span>Elevación Explosiva Chapa Zinc</span>
+      <span class="control-value" id="valExplode">0.00 m</span>
+    </div>
+    <input type="range" id="sliderExplode" min="0.00" max="1.20" step="0.02" value="0.00">
+  </div>
+
+  <div class="control-group">
+    <div class="control-label">
+      <span>Opacidad Chapa Trapezoidal</span>
+      <span class="control-value" id="valOpacity">100%</span>
+    </div>
+    <input type="range" id="sliderOpacity" min="0.15" max="1.00" step="0.05" value="1.00">
+  </div>
+
+  <div class="btn-row">
+    <button id="btnToggleSheet" class="active">Chapa Zinc: ON</button>
+    <button id="btnCamReset">Centrar Cámara</button>
+  </div>
+
+  <div class="bom-box">
+    <div class="bom-title">Cómputo y Geometría Estructural</div>
+    <div class="bom-item"><span>Planta Libre (L × A):</span><span>4.00 × 3.00 m</span></div>
+    <div class="bom-item"><span>Pendiente Techo:</span><span id="bomSlope">15.5% (8.8°)</span></div>
+    <div class="bom-item"><span>4 Postes PTR 100×100:</span><span id="bomPosts">2×2.80m | 2×2.35m</span></div>
+    <div class="bom-item"><span>2 Vigas Principales 4m:</span><span>PTR 100×100 mm</span></div>
+    <div class="bom-item"><span>3 Cabios Inclinados:</span><span id="bomRafters">PTR 100×100 (3.36m)</span></div>
+    <div class="bom-item"><span>4 Correas de Techo:</span><span>PTR 80×40 mm (4.20m)</span></div>
+    <div class="bom-item"><span>Cubierta Zinc T-101:</span><span id="bomSheets">4 paños × 3.44 m</span></div>
+  </div>
+
+  <div class="hint">Click izquierdo: Rotar | Click derecho: Desplazar | Rueda: Zoom</div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x7c828a);
+
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(6.2, 4.4, 6.4);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
+container.appendChild(renderer.domElement);
+
+const pmremGenerator = new THREE.PMREMGenerator(renderer);
+scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.45, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.maxPolarAngle = Math.PI * 0.495;
+
+// Iluminación de estudio
+const hemiLight = new THREE.HemisphereLight(0xf8fafc, 0x334155, 0.65);
+scene.add(hemiLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 2.2);
+dirLight.position.set(7, 11, 8);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(2048, 2048);
+dirLight.shadow.camera.near = 1;
+dirLight.shadow.camera.far = 26;
+const d = 5.5;
+dirLight.shadow.camera.left = -d;
+dirLight.shadow.camera.right = d;
+dirLight.shadow.camera.top = d;
+dirLight.shadow.camera.bottom = -d;
+dirLight.shadow.bias = -0.0005;
+scene.add(dirLight);
+
+// Textura procedural para acero al carbono laminado
+function createCarbonSteelTextures() {
+  const size = 512;
+  const canvasAlb = document.createElement('canvas');
+  canvasAlb.width = canvasAlb.height = size;
+  const ctxA = canvasAlb.getContext('2d');
+
+  const canvasRough = document.createElement('canvas');
+  canvasRough.width = canvasRough.height = size;
+  const ctxR = canvasRough.getContext('2d');
+
+  ctxA.fillStyle = '#2d333b';
+  ctxA.fillRect(0, 0, size, size);
+
+  ctxR.fillStyle = '#4a4a4a';
+  ctxR.fillRect(0, 0, size, size);
+
+  for (let i = 0; i < 4500; i++) {
+    const x = Math.random() * size;
+    const y = Math.random() * size;
+    const w = 15 + Math.random() * 90;
+    const h = 1 + Math.random() * 2.5;
+    const shade = 38 + Math.floor(Math.random( ) * 26);
+    ctxA.fillStyle = `rgb(${shade}, ${shade + 4}, ${shade + 10})`;
+    ctxA.fillRect(x, y, w, h);
+
+    const rVal = 55 + Math.floor(Math.random() * 55);
+    ctxR.fillStyle = `rgb(${rVal}, ${rVal}, ${rVal})`;
+    ctxR.fillRect(x, y, w, h);
+  }
+
+  const map = new THREE.CanvasTexture(canvasAlb);
+  map.wrapS = map.wrapT = THREE.RepeatWrapping;
+  map.repeat.set(2, 2);
+
+  const roughMap = new THREE.CanvasTexture(canvasRough);
+  roughMap.wrapS = roughMap.wrapT = THREE.RepeatWrapping;
+  roughMap.repeat.set(2, 2);
+
+  return { map, roughMap };
+}
+
+// Textura de cristalizado de Zinc Galvanizado
+function createZincTextures() {
+  const size = 512;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+
+  ctx.fillStyle = '#b8c2cc';
+  ctx.fillRect(0, 0, size, size);
+
+  for (let i = 0; i < 1200; i++) {
+    const x = Math.random() * size;
+    const y = Math.random() * size;
+    const r = 3 + Math.random() * 10;
+    const v = 165 + Math.floor(Math.random() * 55);
+    ctx.fillStyle = `rgba(${v}, ${v + 5}, ${v + 12}, 0.35)`;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + r, y + r * 0.4);
+    ctx.lineTo(x + r * 0.3, y + r);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(6, 6);
+  return tex;
+}
+
+const steelTex = createCarbonSteelTextures();
+const zincTex = createZincTextures();
+
+const ptrMaterial = new THREE.MeshStandardMaterial({
+  map: steelTex.map,
+  roughnessMap: steelTex.roughMap,
+  metalness: 0.91,
+  roughness: 0.27,
+  envMapIntensity: 1.5
+});
+
+const weldMaterial = new THREE.MeshStandardMaterial({
+  color: 0x525b66,
+  metalness: 0.94,
+  roughness: 0.22
+});
+
+const plateMaterial = new THREE.MeshStandardMaterial({
+  color: 0x22272e,
+  metalness: 0.88,
+  roughness: 0.32
+});
+
+const zincMaterial = new THREE.MeshStandardMaterial({
+  map: zincTex,
+  color: 0xd0d7de,
+  metalness: 0.86,
+  roughness: 0.23,
+  envMapIntensity: 1.45,
+  side: THREE.DoubleSide,
+  transparent: false,
+  opacity: 1.0
+});
+
+// Piso de hormigón de taller / platea con grilla métrica
+const floorGroup = new THREE.Group();
+const slabGeo = new THREE.BoxGeometry(5.6, 0.14, 4.6);
+const slabMat = new THREE.MeshStandardMaterial({
+  color: 0x646970,
+  roughness: 0.85,
+  metalness: 0.05
+});
+const slabMesh = new THREE.Mesh(slabGeo, slabMat);
+slabMesh.position.y = -0.07;
+slabMesh.receiveShadow = true;
+floorGroup.add(slabMesh);
+
+const gridHelper = new THREE.GridHelper(5.6, 28, 0x38bdf8, 0x4b5563);
+gridHelper.position.y = 0.002;
+gridHelper.material.opacity = 0.35;
+gridHelper.material.transparent = true;
+floorGroup.add(gridHelper);
+scene.add(floorGroup);
+
+// Generador de perfil PTR Hueco con bordes redondeados reales
+function createRoundedHollowPTR(width, depth, length, wall = 0.004, radius = 0.014) {
+  const hw = width / 2;
+  const hd = depth / 2;
+  const r = Math.min(radius, hw * 0.4, hd * 0.4);
+
+  function roundedRectPath(w2, d2, rad) {
+    const p = new THREE.Shape();
+    p.moveTo(-w2 + rad, -d2);
+    p.lineTo(w2 - rad, -d2);
+    p.quadraticCurveTo(w2, -d2, w2, -d2 + rad);
+    p.lineTo(w2, d2 - rad);
+    p.quadraticCurveTo(w2, d2, w2 - rad, d2);
+    p.lineTo(-w2 + rad, d2);
+    p.quadraticCurveTo(-w2, d2, -w2, d2 - rad);
+    p.lineTo(-w2, -d2 + rad);
+    p.quadraticCurveTo(-w2, -d2, -w2 + rad, -d2);
+    return p;
+  }
+
+  const outerShape = roundedRectPath(hw, hd, r);
+  const innerHole = roundedRectPath(hw - wall, hd - wall, Math.max(0.003, r - wall));
+  outerShape.holes.push(innerHole);
+
+  const extrudeSettings = {
+    depth: length,
+    bevelEnabled: false,
+    curveSegments: 8
+  };
+
+  const geo = new THREE.ExtrudeGeometry(outerShape, extrudeSettings);
+  geo.translate(0, 0, -length / 2);
+  return geo;
+}
+
+// Generador de Chapa de Zinc Trapezoidal Acanalada (Perfil T-101)
+function createTrapezoidalSheetGeometry(totalWidth, slopeLength, ribHeight = 0.032, thickness = 0.0035) {
+  const pitch = 0.20;
+  const crestW = 0.036;
+  const valleyW = 0.088;
+  const slopeW = (pitch - crestW - valleyW) / 2;
+
+  const ptsTop = [];
+  const startX = -totalWidth / 2;
+  const numWaves = Math.round(totalWidth / pitch);
+
+  for (let i = 0; i < numWaves; i++) {
+    const x0 = startX + i * pitch;
+    const x1 = x0 + valleyW / 2;
+    const x2 = x1 + slopeW;
+    const x3 = x2 + crestW;
+    const x4 = x3 + slopeW;
+    const x5 = x0 + pitch;
+
+    if (i === 0) ptsTop.push(new THREE.Vector2(x0, 0));
+    ptsTop.push(new THREE.Vector2(x1, 0));
+    ptsTop.push(new THREE.Vector2(x2, ribHeight));
+    ptsTop.push(new THREE.Vector2(x3, ribHeight));
+    ptsTop.push(new THREE.Vector2(x4, 0));
+    ptsTop.push(new THREE.Vector2(x5, 0));
+  }
+
+  const shape = new THREE.Shape();
+  shape.moveTo(ptsTop[0].x, ptsTop[0].y);
+  for (let i = 1; i < ptsTop.length; i++) {
+    shape.lineTo(ptsTop[i].x, ptsTop[i].y);
+  }
+  for (let i = ptsTop.length - 1; i >= 0; i--) {
+    shape.lineTo(ptsTop[i].x, ptsTop[i].y + thickness);
+  }
+  shape.closePath();
+
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: slopeLength,
+    bevelEnabled: false
+  });
+  geo.translate(0, 0, -slopeLength / 2);
+  return geo;
+}
+
+const structureGroup = new THREE.Group();
+scene.add(structureGroup);
+
+let sheetMeshGroup = new THREE.Group();
+let isSheetVisible = true;
+
+function buildRoofStructure(frontH, backH, explodeOffset, sheetOpacity) {
+  while (structureGroup.children.length > 0) {
+    const obj = structureGroup.children[0];
+    structureGroup.remove(obj);
+  }
+
+  const L = 4.00; // Largo de frente (Eje X: -2.0 a +2.0)
+  const W = 3.00; // Ancho / caída (Eje Z: +1.5 frente a -1.5 fondo)
+  const ptrSize = 0.10; // 100x100 mm
+
+  const xPositions = [-L / 2 + ptrSize / 2, L / 2 - ptrSize / 2];
+  const zFront = W / 2 - ptrSize / 2;  // +1.45 m
+  const zBack = -W / 2 + ptrSize / 2;  // -1.45 m
+  const dz = zFront - zBack; // 2.90 m entre ejes de vigas maestras
+
+  const dy = frontH - backH;
+  const slopeAngle = Math.atan2(dy, dz); // Ángulo de pendiente del techo
+
+  // 1. Placas base y 4 Postes PTR 100x100
+  const basePlateGeo = new THREE.BoxGeometry(0.22, 0.01, 0.22);
+  const boltGeo = new THREE.CylinderGeometry(0.008, 0.008, 0.028, 8);
+
+  const postPositions = [
+    { x: xPositions[0], z: zFront, h: frontH },
+    { x: xPositions[1], z: zFront, h: frontH },
+    { x: xPositions[0], z: zBack, h: backH },
+    { x: xPositions[1], z: zBack, h: backH }
+  ];
+
+  postPositions.forEach(p => {
+    const plate = new THREE.Mesh(basePlateGeo, plateMaterial);
+    plate.position.set(p.x, 0.005, p.z);
+    plate.receiveShadow = true;
+    structureGroup.add(plate);
+
+    [[-0.08, -0.08], [0.08, -0.08], [-0.08, 0.08], [0.08, 0.08]].forEach(([bx, bz]) => {
+      const bolt = new THREE.Mesh(boltGeo, weldMaterial);
+      bolt.position.set(p.x + bx, 0.015, p.z + bz);
+      structureGroup.add(bolt);
+    });
+
+    const postGeo = createRoundedHollowPTR(ptrSize, ptrSize, p.h);
+    postGeo.rotateX(Math.PI / 2);
+    const postMesh = new THREE.Mesh(postGeo, ptrMaterial);
+    postMesh.position.set(p.x, p.h / 2, p.z);
+    postMesh.castShadow = true;
+    postMesh.receiveShadow = true;
+    structureGroup.add(postMesh);
+  });
+
+  // 2. Dos Vigas Maestras Longitudinales de 4.00 m (inclinadas al ángulo del techo para apoyo plano perfecto)
+  const mainBeamGeo = createRoundedHollowPTR(ptrSize, ptrSize, L);
+  mainBeamGeo.rotateY(Math.PI / 2);
+
+  const frontBeam = new THREE.Mesh(mainBeamGeo, ptrMaterial);
+  frontBeam.position.set(0, frontH + ptrSize / 2, zFront);
+  frontBeam.rotation.x = -slopeAngle;
+  frontBeam.castShadow = true;
+  frontBeam.receiveShadow = true;
+  structureGroup.add(frontBeam);
+
+  const backBeam = new THREE.Mesh(mainBeamGeo, ptrMaterial);
+  backBeam.position.set(0, backH + ptrSize / 2, zBack);
+  backBeam.rotation.x = -slopeAngle;
+  backBeam.castShadow = true;
+  backBeam.receiveShadow = true;
+  structureGroup.add(backBeam);
+
+  // 3. Grupo de Plano Inclinado (unifica el ángulo de cabios, correas y chapa trapezoidal)
+  // En Three.js, rotar -slopeAngle alrededor de X eleva el frente (+Z) y baja el fondo (-Z).
+  const midMainBeamTopY = (frontH + backH) / 2 + ptrSize / 2 + (ptrSize / 2) * Math.cos(slopeAngle);
+  const midMainBeamTopZ = -(ptrSize / 2) * Math.sin(slopeAngle);
+
+  const roofPlaneGroup = new THREE.Group();
+  roofPlaneGroup.position.set(0, midMainBeamTopY, midMainBeamTopZ);
+  roofPlaneGroup.rotation.x = -slopeAngle;
+  structureGroup.add(roofPlaneGroup);
+
+  // 3A. Tres Cabios Inclinados (apoyados exactamente sobre la cara superior de las vigas maestras)
+  const overhangZ = 0.16;
+  const rafterSpanZ = W + overhangZ * 2;
+  const rafterLength = rafterSpanZ / Math.cos(slopeAngle);
+  const rafterGeo = createRoundedHollowPTR(ptrSize, ptrSize, rafterLength);
+
+  const rafterXList = [xPositions[0], 0, xPositions[1]];
+  rafterXList.forEach(rx => {
+    const rafter = new THREE.Mesh(rafterGeo, ptrMaterial);
+    // Su base está en yLocal = 0, por lo que su centro va en ptrSize / 2
+    rafter.position.set(rx, ptrSize / 2, 0);
+    rafter.castShadow = true;
+    rafter.receiveShadow = true;
+    roofPlaneGroup.add(rafter);
+  });
+
+  // 3B. Cuatro Correas Estructurales Transversales (PTR 80x40 mm apoyadas sobre los cabios)
+  const purlinW = 0.08;
+  const purlinH = 0.04;
+  const purlinLen = L + 0.20; // 4.20 m
+  const purlinGeo = createRoundedHollowPTR(purlinW, purlinH, purlinLen, 0.003, 0.008);
+  purlinGeo.rotateY(Math.PI / 2); // Al estar dentro de roofPlaneGroup, heredan el ángulo del techo sin distorsión
+
+  const numPurlins = 4;
+  const localZStart = -rafterLength / 2 + 0.14;
+  const localZEnd = rafterLength / 2 - 0.14;
+  const purlinLocalY = ptrSize + purlinH / 2;
+
+  const purlinZCoords = [];
+  for (let i = 0; i < numPurlins; i++) {
+    const t = i / (numPurlins - 1);
+    const localZ = THREE.MathUtils.lerp(localZStart, localZEnd, t);
+    purlinZCoords.push(localZ);
+
+    const purlin = new THREE.Mesh(purlinGeo, ptrMaterial);
+    purlin.position.set(0, purlinLocalY, localZ);
+    purlin.castShadow = true;
+    purlin.receiveShadow = true;
+    roofPlaneGroup.add(purlin);
+  }
+
+  // 3C. Cubierta de Chapa de Zinc Trapezoidal T-101 + Tornillos Autoperforantes
+  sheetMeshGroup = new THREE.Group();
+  const sheetWidth = L + 0.24; // 4.24 m
+  const sheetLength = rafterLength + 0.08;
+  const ribHeight = 0.032;
+  const sheetThick = 0.0035;
+  const sheetGeo = createTrapezoidalSheetGeometry(sheetWidth, sheetLength, ribHeight, sheetThick);
+
+  zincMaterial.opacity = sheetOpacity;
+  zincMaterial.transparent = sheetOpacity < 0.99;
+
+  const sheetMesh = new THREE.Mesh(sheetGeo, zincMaterial);
+  sheetMesh.castShadow = true;
+  sheetMesh.receiveShadow = true;
+  sheetMeshGroup.add(sheetMesh);
+
+  // Tornillos autoperforantes con arandela EPDM centrados en las crestas sobre cada correa
+  const screwGeo = new THREE.CylinderGeometry(0.007, 0.007, 0.012, 6);
+  const screwMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.3 });
+  const pitch = 0.20;
+  const startX = -sheetWidth / 2;
+  const numWaves = Math.round(sheetWidth / pitch);
+
+  purlinZCoords.forEach(localZ => {
+    for (let w = 1; w < numWaves; w += 2) {
+      const crestCenterX = startX + (w + 0.5) * pitch;
+      const screw = new THREE.Mesh(screwGeo, screwMat);
+      screw.position.set(crestCenterX, ribHeight + sheetThick + 0.004, localZ);
+      sheetMeshGroup.add(screw);
+    }
+  });
+
+  // La base de la chapa apoya exactamente en yLocal = ptrSize + purlinH (cara superior de las correas)
+  sheetMeshGroup.position.set(0, ptrSize + purlinH + explodeOffset, 0);
+  sheetMeshGroup.visible = isSheetVisible;
+  roofPlaneGroup.add(sheetMeshGroup);
+
+  // Actualizar Cómputo de Materiales (BOM) en la interfaz
+  const slopePct = ((dy / dz) * 100).toFixed(1);
+  const slopeDeg = THREE.MathUtils.radToDeg(slopeAngle).toFixed(1);
+  document.getElementById('bomSlope').textContent = `${slopePct}% (${slopeDeg}°)`;
+  document.getElementById('bomPosts').textContent = `2×${frontH.toFixed(2)}m | 2×${backH.toFixed(2)}m`;
+  document.getElementById('bomRafters').textContent = `PTR 100×100 (${rafterLength.toFixed(2)}m)`;
+  document.getElementById('bomSheets').textContent = `4 paños × ${sheetLength.toFixed(2)} m`;
+}
+
+// Controles de Interfaz
+const sliderFrontH = document.getElementById('sliderFrontH');
+const sliderBackH = document.getElementById('sliderBackH');
+const sliderExplode = document.getElementById('sliderExplode');
+const sliderOpacity = document.getElementById('sliderOpacity');
+const btnToggleSheet = document.getElementById('btnToggleSheet');
+const btnCamReset = document.getElementById('btnCamReset');
+
+function updateFromUI() {
+  const fH = parseFloat(sliderFrontH.value);
+  const bH = parseFloat(sliderBackH.value);
+  const exp = parseFloat(sliderExplode.value);
+  const opa = parseFloat(sliderOpacity.value);
+
+  document.getElementById('valFrontH').textContent = `${fH.toFixed(2)} m`;
+  document.getElementById('valBackH').textContent = `${bH.toFixed(2)} m`;
+  document.getElementById('valExplode').textContent = `${exp.toFixed(2)} m`;
+  document.getElementById('valOpacity').textContent = `${Math.round(opa * 100)}%`;
+
+  buildRoofStructure(fH, bH, exp, opa);
+}
+
+[sliderFrontH, sliderBackH, sliderExplode, sliderOpacity].forEach(el => {
+  el.addEventListener('input', updateFromUI);
+});
+
+btnToggleSheet.addEventListener('click', () => {
+  isSheetVisible = !isSheetVisible;
+  sheetMeshGroup.visible = isSheetVisible;
+  btnToggleSheet.textContent = isSheetVisible ? 'Chapa Zinc: ON' : 'Chapa Zinc: OFF';
+  btnToggleSheet.classList.toggle('active', isSheetVisible);
+});
+
+btnCamReset.addEventListener('click', () => {
+  camera.position.set(6.2, 4.4, 6.4);
+  controls.target.set(0, 1.45, 0);
+  controls.update();
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+updateFromUI();
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
