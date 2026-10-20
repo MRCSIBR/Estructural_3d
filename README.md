@@ -9,7 +9,7 @@ Desarrollado con **Three.js** (sin librerías locales, 100% en el navegador).
 ## 🌐 Demo en vivo
 
 👉 **[Ver proyecto online](https://mrcsibr.github.io/Estructural_3d/)**  
-*(Reemplaza con tu usuario y nombre de repositorio)*
+
 
 ---
 
@@ -52,4 +52,4 @@ No requiere Node.js ni instalación de paquetes:
 
 1. Clona el repositorio:
    ```bash
-   git clone https://github.com/TU-USUARIO/TU-REPOSITORIO.git
+   git clone https://github.com/MRCSIBR/Estructural_3d.git
