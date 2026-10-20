@@ -8,7 +8,7 @@ Desarrollado con **Three.js** (sin librerías locales, 100% en el navegador).
 
 ## 🌐 Demo en vivo
 
-👉 **[Ver proyecto online](https://TU-USUARIO.github.io/TU-REPOSITORIO/)**  
+👉 **[Ver proyecto online](https://mrcsibr.github.io/Estructural_3d/)**  
 *(Reemplaza con tu usuario y nombre de repositorio)*
 
 ---
