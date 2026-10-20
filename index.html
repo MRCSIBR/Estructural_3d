@@ -219,7 +219,6 @@ const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x7c828a);
 
-// CORRECCIÓN 1: near reducido a 0.02 (2 cm) y far ampliado a 200
 const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.02, 200);
 camera.position.set(6.2, 4.4, 6.4);
 
@@ -241,9 +240,21 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.06;
 controls.maxPolarAngle = Math.PI * 0.495;
 
-// CORRECCIÓN 2: minDistance evita que el zoom colapse a cero y desaparezca la escena
-controls.minDistance = 0.35;
-controls.maxDistance = 30.0;
+// Desactivamos el zoom brusco de OrbitControls r160 y usamos zoom suave controlado por pasos
+controls.enableZoom = false;
+const minZoomDist = 0.80;
+const maxZoomDist = 24.0;
+let targetZoomDist = camera.position.distanceTo(controls.target);
+
+renderer.domElement.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const direction = Math.sign(e.deltaY);
+  if (direction === 0) return;
+  // Cada "tick" de la rueda mueve solo un 6% la distancia actual
+  const stepFactor = 0.06;
+  targetZoomDist *= (1 + direction * stepFactor);
+  targetZoomDist = THREE.MathUtils.clamp(targetZoomDist, minZoomDist, maxZoomDist);
+}, { passive: false });
 
 // Iluminación
 const hemiLight = new THREE.HemisphereLight(0xf8fafc, 0x334155, 0.65);
@@ -513,7 +524,6 @@ function buildRoofStructure(frontH, backH, explodeOffset, sheetOpacity) {
     postMesh.position.set(p.x, p.h / 2, p.z);
     postMesh.castShadow = true;
     postMesh.receiveShadow = true;
-    // CORRECCIÓN 3: Desactivar frustumCulled para que no desaparezca con zoom cercano
     postMesh.frustumCulled = false;
     structureGroup.add(postMesh);
   });
@@ -673,6 +683,7 @@ btnCamReset.addEventListener('click', () => {
   camera.position.set(6.2, 4.4, 6.4);
   controls.target.set(0, 1.45, 0);
   controls.update();
+  targetZoomDist = camera.position.distanceTo(controls.target);
 });
 
 window.addEventListener('resize', () => {
@@ -683,9 +694,20 @@ window.addEventListener('resize', () => {
 
 updateFromUI();
 
+const zoomDir = new THREE.Vector3();
+
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
+
+  // Interpolación suave de la distancia de zoom paso a paso
+  const currentDist = camera.position.distanceTo(controls.target);
+  if (Math.abs(currentDist - targetZoomDist) > 0.001) {
+    const newDist = THREE.MathUtils.lerp(currentDist, targetZoomDist, 0.15);
+    zoomDir.subVectors(camera.position, controls.target).normalize();
+    camera.position.copy(controls.target).addScaledVector(zoomDir, newDist);
+  }
+
   renderer.render(scene, camera);
 }
 animate();
