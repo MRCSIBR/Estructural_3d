@@ -42,6 +42,7 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+    z-index: 10;
   }
   .ui-header {
     border-bottom: 1px solid var(--border);
@@ -218,7 +219,8 @@ const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x7c828a);
 
-const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+// CORRECCIÓN 1: near reducido a 0.02 (2 cm) y far ampliado a 200
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.02, 200);
 camera.position.set(6.2, 4.4, 6.4);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -239,7 +241,11 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.06;
 controls.maxPolarAngle = Math.PI * 0.495;
 
-// Iluminación de estudio
+// CORRECCIÓN 2: minDistance evita que el zoom colapse a cero y desaparezca la escena
+controls.minDistance = 0.35;
+controls.maxDistance = 30.0;
+
+// Iluminación
 const hemiLight = new THREE.HemisphereLight(0xf8fafc, 0x334155, 0.65);
 scene.add(hemiLight);
 
@@ -257,7 +263,7 @@ dirLight.shadow.camera.bottom = -d;
 dirLight.shadow.bias = -0.0005;
 scene.add(dirLight);
 
-// Textura procedural para acero al carbono laminado
+// Texturas procedimentales
 function createCarbonSteelTextures() {
   const size = 512;
   const canvasAlb = document.createElement('canvas');
@@ -279,7 +285,7 @@ function createCarbonSteelTextures() {
     const y = Math.random() * size;
     const w = 15 + Math.random() * 90;
     const h = 1 + Math.random() * 2.5;
-    const shade = 38 + Math.floor(Math.random( ) * 26);
+    const shade = 38 + Math.floor(Math.random() * 26);
     ctxA.fillStyle = `rgb(${shade}, ${shade + 4}, ${shade + 10})`;
     ctxA.fillRect(x, y, w, h);
 
@@ -299,7 +305,6 @@ function createCarbonSteelTextures() {
   return { map, roughMap };
 }
 
-// Textura de cristalizado de Zinc Galvanizado
 function createZincTextures() {
   const size = 512;
   const c = document.createElement('canvas');
@@ -363,7 +368,7 @@ const zincMaterial = new THREE.MeshStandardMaterial({
   opacity: 1.0
 });
 
-// Piso de hormigón de taller / platea con grilla métrica
+// Platea de piso
 const floorGroup = new THREE.Group();
 const slabGeo = new THREE.BoxGeometry(5.6, 0.14, 4.6);
 const slabMat = new THREE.MeshStandardMaterial({
@@ -383,7 +388,7 @@ gridHelper.material.transparent = true;
 floorGroup.add(gridHelper);
 scene.add(floorGroup);
 
-// Generador de perfil PTR Hueco con bordes redondeados reales
+// Geometría de PTR hueco
 function createRoundedHollowPTR(width, depth, length, wall = 0.004, radius = 0.014) {
   const hw = width / 2;
   const hd = depth / 2;
@@ -407,18 +412,14 @@ function createRoundedHollowPTR(width, depth, length, wall = 0.004, radius = 0.0
   const innerHole = roundedRectPath(hw - wall, hd - wall, Math.max(0.003, r - wall));
   outerShape.holes.push(innerHole);
 
-  const extrudeSettings = {
-    depth: length,
-    bevelEnabled: false,
-    curveSegments: 8
-  };
-
+  const extrudeSettings = { depth: length, bevelEnabled: false, curveSegments: 8 };
   const geo = new THREE.ExtrudeGeometry(outerShape, extrudeSettings);
   geo.translate(0, 0, -length / 2);
+  geo.computeBoundingSphere();
   return geo;
 }
 
-// Generador de Chapa de Zinc Trapezoidal Acanalada (Perfil T-101)
+// Geometría Chapa Trapezoidal T-101
 function createTrapezoidalSheetGeometry(totalWidth, slopeLength, ribHeight = 0.032, thickness = 0.0035) {
   const pitch = 0.20;
   const crestW = 0.036;
@@ -447,19 +448,13 @@ function createTrapezoidalSheetGeometry(totalWidth, slopeLength, ribHeight = 0.0
 
   const shape = new THREE.Shape();
   shape.moveTo(ptsTop[0].x, ptsTop[0].y);
-  for (let i = 1; i < ptsTop.length; i++) {
-    shape.lineTo(ptsTop[i].x, ptsTop[i].y);
-  }
-  for (let i = ptsTop.length - 1; i >= 0; i--) {
-    shape.lineTo(ptsTop[i].x, ptsTop[i].y + thickness);
-  }
+  for (let i = 1; i < ptsTop.length; i++) shape.lineTo(ptsTop[i].x, ptsTop[i].y);
+  for (let i = ptsTop.length - 1; i >= 0; i--) shape.lineTo(ptsTop[i].x, ptsTop[i].y + thickness);
   shape.closePath();
 
-  const geo = new THREE.ExtrudeGeometry(shape, {
-    depth: slopeLength,
-    bevelEnabled: false
-  });
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: slopeLength, bevelEnabled: false });
   geo.translate(0, 0, -slopeLength / 2);
+  geo.computeBoundingSphere();
   return geo;
 }
 
@@ -475,19 +470,19 @@ function buildRoofStructure(frontH, backH, explodeOffset, sheetOpacity) {
     structureGroup.remove(obj);
   }
 
-  const L = 4.00; // Largo de frente (Eje X: -2.0 a +2.0)
-  const W = 3.00; // Ancho / caída (Eje Z: +1.5 frente a -1.5 fondo)
-  const ptrSize = 0.10; // 100x100 mm
+  const L = 4.00;
+  const W = 3.00;
+  const ptrSize = 0.10;
 
   const xPositions = [-L / 2 + ptrSize / 2, L / 2 - ptrSize / 2];
-  const zFront = W / 2 - ptrSize / 2;  // +1.45 m
-  const zBack = -W / 2 + ptrSize / 2;  // -1.45 m
-  const dz = zFront - zBack; // 2.90 m entre ejes de vigas maestras
+  const zFront = W / 2 - ptrSize / 2;
+  const zBack = -W / 2 + ptrSize / 2;
+  const dz = zFront - zBack;
 
   const dy = frontH - backH;
-  const slopeAngle = Math.atan2(dy, dz); // Ángulo de pendiente del techo
+  const slopeAngle = Math.atan2(dy, dz);
 
-  // 1. Placas base y 4 Postes PTR 100x100
+  // 1. Postes PTR
   const basePlateGeo = new THREE.BoxGeometry(0.22, 0.01, 0.22);
   const boltGeo = new THREE.CylinderGeometry(0.008, 0.008, 0.028, 8);
 
@@ -512,22 +507,28 @@ function buildRoofStructure(frontH, backH, explodeOffset, sheetOpacity) {
 
     const postGeo = createRoundedHollowPTR(ptrSize, ptrSize, p.h);
     postGeo.rotateX(Math.PI / 2);
+    postGeo.computeBoundingSphere();
+
     const postMesh = new THREE.Mesh(postGeo, ptrMaterial);
     postMesh.position.set(p.x, p.h / 2, p.z);
     postMesh.castShadow = true;
     postMesh.receiveShadow = true;
+    // CORRECCIÓN 3: Desactivar frustumCulled para que no desaparezca con zoom cercano
+    postMesh.frustumCulled = false;
     structureGroup.add(postMesh);
   });
 
-  // 2. Dos Vigas Maestras Longitudinales de 4.00 m (inclinadas al ángulo del techo para apoyo plano perfecto)
+  // 2. Vigas Maestras
   const mainBeamGeo = createRoundedHollowPTR(ptrSize, ptrSize, L);
   mainBeamGeo.rotateY(Math.PI / 2);
+  mainBeamGeo.computeBoundingSphere();
 
   const frontBeam = new THREE.Mesh(mainBeamGeo, ptrMaterial);
   frontBeam.position.set(0, frontH + ptrSize / 2, zFront);
   frontBeam.rotation.x = -slopeAngle;
   frontBeam.castShadow = true;
   frontBeam.receiveShadow = true;
+  frontBeam.frustumCulled = false;
   structureGroup.add(frontBeam);
 
   const backBeam = new THREE.Mesh(mainBeamGeo, ptrMaterial);
@@ -535,10 +536,10 @@ function buildRoofStructure(frontH, backH, explodeOffset, sheetOpacity) {
   backBeam.rotation.x = -slopeAngle;
   backBeam.castShadow = true;
   backBeam.receiveShadow = true;
+  backBeam.frustumCulled = false;
   structureGroup.add(backBeam);
 
-  // 3. Grupo de Plano Inclinado (unifica el ángulo de cabios, correas y chapa trapezoidal)
-  // En Three.js, rotar -slopeAngle alrededor de X eleva el frente (+Z) y baja el fondo (-Z).
+  // 3. Cabios y Correas
   const midMainBeamTopY = (frontH + backH) / 2 + ptrSize / 2 + (ptrSize / 2) * Math.cos(slopeAngle);
   const midMainBeamTopZ = -(ptrSize / 2) * Math.sin(slopeAngle);
 
@@ -547,28 +548,28 @@ function buildRoofStructure(frontH, backH, explodeOffset, sheetOpacity) {
   roofPlaneGroup.rotation.x = -slopeAngle;
   structureGroup.add(roofPlaneGroup);
 
-  // 3A. Tres Cabios Inclinados (apoyados exactamente sobre la cara superior de las vigas maestras)
   const overhangZ = 0.16;
   const rafterSpanZ = W + overhangZ * 2;
   const rafterLength = rafterSpanZ / Math.cos(slopeAngle);
   const rafterGeo = createRoundedHollowPTR(ptrSize, ptrSize, rafterLength);
+  rafterGeo.computeBoundingSphere();
 
   const rafterXList = [xPositions[0], 0, xPositions[1]];
   rafterXList.forEach(rx => {
     const rafter = new THREE.Mesh(rafterGeo, ptrMaterial);
-    // Su base está en yLocal = 0, por lo que su centro va en ptrSize / 2
     rafter.position.set(rx, ptrSize / 2, 0);
     rafter.castShadow = true;
     rafter.receiveShadow = true;
+    rafter.frustumCulled = false;
     roofPlaneGroup.add(rafter);
   });
 
-  // 3B. Cuatro Correas Estructurales Transversales (PTR 80x40 mm apoyadas sobre los cabios)
   const purlinW = 0.08;
   const purlinH = 0.04;
-  const purlinLen = L + 0.20; // 4.20 m
+  const purlinLen = L + 0.20;
   const purlinGeo = createRoundedHollowPTR(purlinW, purlinH, purlinLen, 0.003, 0.008);
-  purlinGeo.rotateY(Math.PI / 2); // Al estar dentro de roofPlaneGroup, heredan el ángulo del techo sin distorsión
+  purlinGeo.rotateY(Math.PI / 2);
+  purlinGeo.computeBoundingSphere();
 
   const numPurlins = 4;
   const localZStart = -rafterLength / 2 + 0.14;
@@ -585,12 +586,13 @@ function buildRoofStructure(frontH, backH, explodeOffset, sheetOpacity) {
     purlin.position.set(0, purlinLocalY, localZ);
     purlin.castShadow = true;
     purlin.receiveShadow = true;
+    purlin.frustumCulled = false;
     roofPlaneGroup.add(purlin);
   }
 
-  // 3C. Cubierta de Chapa de Zinc Trapezoidal T-101 + Tornillos Autoperforantes
+  // Chapa y Tornillería
   sheetMeshGroup = new THREE.Group();
-  const sheetWidth = L + 0.24; // 4.24 m
+  const sheetWidth = L + 0.24;
   const sheetLength = rafterLength + 0.08;
   const ribHeight = 0.032;
   const sheetThick = 0.0035;
@@ -602,9 +604,9 @@ function buildRoofStructure(frontH, backH, explodeOffset, sheetOpacity) {
   const sheetMesh = new THREE.Mesh(sheetGeo, zincMaterial);
   sheetMesh.castShadow = true;
   sheetMesh.receiveShadow = true;
+  sheetMesh.frustumCulled = false;
   sheetMeshGroup.add(sheetMesh);
 
-  // Tornillos autoperforantes con arandela EPDM centrados en las crestas sobre cada correa
   const screwGeo = new THREE.CylinderGeometry(0.007, 0.007, 0.012, 6);
   const screwMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.3 });
   const pitch = 0.20;
@@ -616,16 +618,16 @@ function buildRoofStructure(frontH, backH, explodeOffset, sheetOpacity) {
       const crestCenterX = startX + (w + 0.5) * pitch;
       const screw = new THREE.Mesh(screwGeo, screwMat);
       screw.position.set(crestCenterX, ribHeight + sheetThick + 0.004, localZ);
+      screw.frustumCulled = false;
       sheetMeshGroup.add(screw);
     }
   });
 
-  // La base de la chapa apoya exactamente en yLocal = ptrSize + purlinH (cara superior de las correas)
   sheetMeshGroup.position.set(0, ptrSize + purlinH + explodeOffset, 0);
   sheetMeshGroup.visible = isSheetVisible;
   roofPlaneGroup.add(sheetMeshGroup);
 
-  // Actualizar Cómputo de Materiales (BOM) en la interfaz
+  // BOM
   const slopePct = ((dy / dz) * 100).toFixed(1);
   const slopeDeg = THREE.MathUtils.radToDeg(slopeAngle).toFixed(1);
   document.getElementById('bomSlope').textContent = `${slopePct}% (${slopeDeg}°)`;
@@ -634,7 +636,7 @@ function buildRoofStructure(frontH, backH, explodeOffset, sheetOpacity) {
   document.getElementById('bomSheets').textContent = `4 paños × ${sheetLength.toFixed(2)} m`;
 }
 
-// Controles de Interfaz
+// Controles UI
 const sliderFrontH = document.getElementById('sliderFrontH');
 const sliderBackH = document.getElementById('sliderBackH');
 const sliderExplode = document.getElementById('sliderExplode');
